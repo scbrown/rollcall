@@ -1,0 +1,21 @@
+node_modules/
+dist/
+
+# Local env / secrets
+.env
+.env.local
+
+# Your real crew roster (phone numbers) — keep it out of git; commit seed.example.json instead
+seed.json
+
+# SQLite database + WAL sidecars
+*.db
+*.db-shm
+*.db-wal
+data/
+
+# Editor / OS cruft
+.DS_Store
+*.log
+.vscode/
+.idea/

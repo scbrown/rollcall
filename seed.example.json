@@ -1,0 +1,11 @@
+{
+  "crews": [
+    {
+      "name": "ATL Floaters",
+      "riders": [
+        { "phone": "+14045551234", "name": "Stiwi" },
+        { "phone": "+14045550000", "name": "TestPhone" }
+      ]
+    }
+  ]
+}
