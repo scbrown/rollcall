@@ -9,6 +9,7 @@ _A presence beacon for PEV riders — **not** a tracker._
 <br>
 
 ![status](https://img.shields.io/badge/status-MVP-5eead4?style=flat-square)
+![CI](https://github.com/scbrown/rollcall/actions/workflows/ci.yml/badge.svg)
 ![stack](https://img.shields.io/badge/TypeScript-Hono-38bdf8?style=flat-square)
 ![storage](https://img.shields.io/badge/SQLite-WAL-0ea5e9?style=flat-square)
 ![sms](https://img.shields.io/badge/SMS-Twilio-64748b?style=flat-square)
@@ -198,20 +199,39 @@ All via environment variables (see [`.env.example`](.env.example)):
 ## 🌐 Deploying
 
 Rollcall just needs a reachable HTTPS webhook and a writable disk for SQLite.
+There's a multi-stage [`Dockerfile`](Dockerfile) (slim, non-root, prod deps
+only) and a [`fly.toml`](fly.toml) ready to go.
 
-- **Homelab** (Proxmox + Cloudflare Tunnel): run the process, point the Tunnel at `PORT`, set `PUBLIC_WEBHOOK_URL` to the public hostname.
-- **Fly.io / Railway**: deploy the Node process with a persistent volume mounted where `DATABASE_PATH` points.
+**Fly.io:**
+
+```bash
+fly launch --no-deploy                                   # match the app name in fly.toml
+fly volumes create rollcall_data --size 1 --region atl   # SQLite lives here
+fly secrets set TWILIO_ACCOUNT_SID=… TWILIO_AUTH_TOKEN=… \
+                TWILIO_FROM_NUMBER=+1… \
+                PUBLIC_WEBHOOK_URL=https://<app>.fly.dev/webhooks/twilio
+fly deploy
+```
+
+**Homelab** (Proxmox + Cloudflare Tunnel): `docker build -t rollcall . && docker run`
+with `/data` mounted and the env vars set; point the Tunnel at `PORT` and set
+`PUBLIC_WEBHOOK_URL` to the public hostname.
+
+> [!NOTE]
+> SQLite is single-writer, so Rollcall runs as **exactly one instance** — the
+> `fly.toml` pins one always-on machine (no auto-stop) so the file isn't shared
+> and the expiry sweep keeps ticking.
 
 Set `PUBLIC_WEBHOOK_URL` to exactly what's in the Twilio console — signature
 validation hashes that URL, so it must match byte-for-byte.
 
 > [!IMPORTANT]
-> **Twilio setup is the slow part.** A2P 10DLC registration is unavoidable for
-> US application SMS even at hobby scale (brand + campaign, one-time ~$19–$60
-> plus a small monthly fee), or a **toll-free number with verification** as the
-> simpler alternative. Verification can take days — budget lead time. Costs
-> otherwise are trivial: number ~$1.15/mo, ~$0.008 per SMS segment. Fan-out copy
-> stays under 160 GSM-7 chars to bill as one segment.
+> **Twilio setup is the slow part** — verification can take days, so start it
+> first. Full walkthrough in **[docs/twilio-setup.md](docs/twilio-setup.md)**:
+> choosing a toll-free vs 10DLC number, verification, wiring the webhook, and
+> the secrets. In short: US application SMS must be registered (there's no hobby
+> exemption), but costs are trivial once live — number ~$1–2/mo, ~$0.008 per
+> segment, and fan-out copy stays under one segment.
 
 ## 🗺️ Roadmap
 
@@ -231,7 +251,7 @@ validation hashes that URL, so it must match byte-for-byte.
 
 <div align="center">
 
-📖 [Vision](docs/vision.md) &nbsp;·&nbsp; [MVP spec](docs/mvp-spec.md) &nbsp;·&nbsp; [Contributing](CONTRIBUTING.md)
+📖 [Vision](docs/vision.md) &nbsp;·&nbsp; [MVP spec](docs/mvp-spec.md) &nbsp;·&nbsp; [Twilio setup](docs/twilio-setup.md) &nbsp;·&nbsp; [Contributing](CONTRIBUTING.md)
 
 <sub>🛞 Ride safe.</sub>
 

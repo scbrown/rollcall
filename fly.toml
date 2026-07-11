@@ -1,0 +1,46 @@
+# Fly.io deployment for Rollcall.
+#
+# SQLite means exactly one machine: the database is a file on a single volume,
+# so we never run more than one instance and never auto-stop (the expiry sweep
+# has to keep ticking). See docs/twilio-setup.md for wiring the webhook URL.
+#
+#   fly launch --no-deploy      # create the app (edit the name below to match)
+#   fly volumes create rollcall_data --size 1 --region atl
+#   fly secrets set TWILIO_ACCOUNT_SID=... TWILIO_AUTH_TOKEN=... \
+#                   TWILIO_FROM_NUMBER=+1... \
+#                   PUBLIC_WEBHOOK_URL=https://<app>.fly.dev/webhooks/twilio
+#   fly deploy
+
+app = "rollcall"
+primary_region = "atl"
+
+[build]
+
+[env]
+  PORT = "8080"
+  DATABASE_PATH = "/data/rollcall.db"
+
+[[mounts]]
+  source = "rollcall_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # SQLite is single-writer: keep one machine always on so the file isn't
+  # shared and the sweep keeps running.
+  auto_stop_machines = "off"
+  auto_start_machines = false
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/health"
+
+# Pin to a single instance — SQLite can't be shared across machines.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

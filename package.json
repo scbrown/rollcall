@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
-    "build": "tsc",
+    "build": "tsc && cp src/db/schema.sql dist/db/schema.sql",
     "migrate": "tsx src/db/migrate.ts",
     "seed": "tsx src/seed.ts",
     "test": "vitest run",
