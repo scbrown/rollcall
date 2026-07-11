@@ -1,55 +1,85 @@
-# 🛞 Rollcall
+<div align="center">
 
-**A presence beacon for PEV crews, not a tracker.** Text one number to go
-"live"; your crew gets a ping. Friends ask who's out and where. Status
-auto-expires, so it's never stale. Think Discord status for wheels.
+<img src="docs/assets/logo.svg" alt="Rollcall — presence for wheels" width="620">
 
-Onewheel, EUC, esk8, e-scooter riders coordinate through noisy group texts
-where "anyone riding today?" gets asked into the void. Rollcall is one bit of
-state per rider — *riding / not riding* — broadcast to the people you chose.
-SMS-first, because half of any crew will never install an app.
+### Text one number. Your crew knows you're out. That's the whole thing.
 
-> This repo is the **MVP**: SMS-only presence + crew fan-out. No PWA, no
-> telemetry, one crew per rider. See [`docs/vision.md`](docs/vision.md) for
-> where it's headed and [`docs/mvp-spec.md`](docs/mvp-spec.md) for the full
-> spec this implements.
+_A presence beacon for PEV riders — **not** a tracker._
 
-## How it feels
+<br>
+
+![status](https://img.shields.io/badge/status-MVP-5eead4?style=flat-square)
+![stack](https://img.shields.io/badge/TypeScript-Hono-38bdf8?style=flat-square)
+![storage](https://img.shields.io/badge/SQLite-WAL-0ea5e9?style=flat-square)
+![sms](https://img.shields.io/badge/SMS-Twilio-64748b?style=flat-square)
+![tests](https://img.shields.io/badge/tests-22%20passing-22c55e?style=flat-square)
+
+</div>
+
+---
+
+Onewheel, EUC, esk8, and scooter crews coordinate through noisy group texts
+where _"anyone riding today?"_ gets asked into the void and spontaneous rides
+go un-joined because nobody knew. Rollcall is **one bit of state per rider** —
+_riding / not riding_ — broadcast only to the people you chose. Think Discord
+status, for wheels.
+
+You flip your status on by texting a number. Your crew gets a ping. Anyone who
+wants in shows up. Status **auto-expires**, so the board is never stale. No app
+to install — half of any crew never would — the phone number _is_ the product.
 
 ```
-You → RIDING piedmont park
-Rollcall → You're live at piedmont park til ~9:15pm. Crew notified.
+  You  →  RIDING piedmont park
+  🛞   →  You're live at piedmont park til ~9:15pm. Crew notified.
 
-  (meanwhile, your crew gets:)
-  🛞 Stiwi is riding at piedmont park (til ~9:15pm)
-  Reply WHO to see everyone out, MUTE to silence.
+        …meanwhile, your crew gets:
+        ┌─────────────────────────────────────────────┐
+        │ 🛞 Stiwi is riding at piedmont park          │
+        │    (til ~9:15pm)                             │
+        │ Reply WHO to see everyone out, MUTE to hush. │
+        └─────────────────────────────────────────────┘
 
-Friend → WHERE stiwi
-Rollcall → Stiwi is at piedmont park (til ~9:15pm).
+  Riri →  WHERE stiwi
+  🛞   →  Stiwi is at piedmont park (til ~9:15pm).
 
-You → DONE      (or just let it expire — crew isn't pinged either way)
-Rollcall → You're off the board. Ride safe. 🛞
+  You  →  DONE            (or just let it expire — crew isn't pinged either way)
+  🛞   →  You're off the board. Ride safe. 🛞
 ```
 
-## SMS commands
+## ✨ What it does
 
-| Text                 | Who    | Effect                                             |
-|----------------------|--------|----------------------------------------------------|
-| `riding`             | rider  | Go live, no location; fan out to crew              |
-| `riding <place>`     | rider  | Go live with a location; fan out                   |
-| `done`               | rider  | End your ride (crew **not** pinged — departures are noise) |
-| `who`                | anyone | List who's out in your crew                        |
-| `where <name>`       | anyone | Get that rider's spot, if they're live             |
-| `+3h` / `extend`     | rider  | Push your expiry out                               |
-| `name <displayname>` | anyone | Set your display name                              |
-| `mute` / `unmute`    | anyone | Stop / resume receiving fan-out (still a member)   |
-| `help`               | anyone | Command list                                       |
-| `stop` / `start`     | anyone | Carrier opt-out / opt-in (honored)                 |
+- 📟 **Zero-install presence** — text `riding`, your crew gets an SMS. That's onboarding.
+- 📍 **Optional spot, not a trail** — drop `riding piedmont park`; friends text `where` for the pin. No breadcrumbs, no history feed.
+- ⏳ **Never stale** — every session auto-expires (default 3h, `+3h` to extend). A beacon you can't trust is worse than none.
+- 🤫 **Departures are silent** — `done` and expiry never ping the crew. Arrivals are interesting; leaving is noise.
+- 👥 **Crew-scoped, full stop** — your status goes only to people you chose. No public map of strangers.
+- 🔕 **Mute without leaving** — `mute` stops pings but keeps you a member; `unmute` any time.
+- 🔒 **Verified inbound** — every webhook's `X-Twilio-Signature` is validated or rejected.
+- ♻️ **Carrier-proof** — duplicate webhooks deduped on `MessageSid`; `STOP`/`START`/`HELP` honored.
+- 🧪 **Runs with no Twilio** — `DRY_RUN` mode logs SMS to the console so you can drive the whole grammar with `curl`.
 
-> ⚠️ Ending a ride is **`done`**, not `stop`. Carriers reserve `STOP` for
-> opting out of all messages — texting it unsubscribes you entirely.
+## 💬 The grammar
 
-## Architecture
+Keywords are case-insensitive; the first word is the command.
+
+| Text                 | Who    | Effect                                                     |
+|----------------------|--------|------------------------------------------------------------|
+| `riding`             | rider  | Go live, no location; fan out to crew                      |
+| `riding <place>`     | rider  | Go live with a location; fan out                           |
+| `done`               | rider  | End your ride — crew **not** pinged                        |
+| `who`                | anyone | List who's out in your crew                                |
+| `where <name>`       | anyone | Get that rider's spot, if they're live                     |
+| `+3h` / `extend`     | rider  | Push your expiry out                                       |
+| `name <displayname>` | anyone | Set your display name                                      |
+| `mute` / `unmute`    | anyone | Stop / resume receiving fan-out (still a member)           |
+| `help`               | anyone | Command list                                               |
+| `stop` / `start`     | anyone | Carrier opt-out / opt-in (honored)                         |
+
+> [!WARNING]
+> Ending a ride is **`done`**, not `stop`. Carriers reserve `STOP` for opting
+> out of _all_ messages — texting it unsubscribes you entirely.
+
+## 🏗️ Architecture
 
 ```
 Twilio number
@@ -61,18 +91,13 @@ Rollcall service (Hono, single process)      SQLite (WAL)
    └─► expiry sweep (in-process, every minute)
 ```
 
-- **Stack:** TypeScript + [Hono](https://hono.dev) on Node ≥20, `better-sqlite3`,
-  the official `twilio` SDK. SQLite is plenty — this is tens of writes a day.
-- **Security:** every inbound request's `X-Twilio-Signature` is validated;
-  otherwise rejected with 403.
-- **Idempotency:** inbound messages are deduped on Twilio's `MessageSid`
-  (carriers retry webhooks).
-- **Expiry:** a one-minute sweep marks lapsed sessions ended — silently, no
-  fan-out, same rationale as `done`.
-- **Privacy:** the `message_log` is append-only for debugging and pruned after
-  30 days.
+TypeScript + [Hono](https://hono.dev) on Node ≥20, `better-sqlite3`, the
+official `twilio` SDK. SQLite is plenty — this is tens of writes a day. The
+domain layer carries no HTTP or Twilio concerns, so the command handler is
+unit-tested against an in-memory database.
 
-## Project layout
+<details>
+<summary>📂 Project layout</summary>
 
 ```
 src/
@@ -94,10 +119,12 @@ src/
   routes/webhook.ts   POST /webhooks/twilio
   seed.ts             `npm run seed` — admin-seeds crews/riders from JSON
 test/                 vitest: parser + command handler
-docs/                 vision.md, mvp-spec.md
+docs/                 vision.md, mvp-spec.md, assets/
 ```
 
-## Getting started
+</details>
+
+## 🚀 Getting started
 
 Requires Node ≥ 20.
 
@@ -107,34 +134,32 @@ cp .env.example .env          # fill in Twilio creds (or set DRY_RUN=true)
 npm run migrate               # create the SQLite database
 ```
 
-### Seed your crew
-
-There's no self-serve signup in the MVP — the admin seeds riders. Copy the
-example and edit it:
+**Seed your crew.** No self-serve signup in the MVP — the admin seeds riders:
 
 ```bash
 cp seed.example.json seed.json   # add your riders (phones must be E.164)
 npm run seed                     # idempotent; safe to re-run as the crew grows
 ```
 
-### Run it
+**Run it.**
 
 ```bash
 npm run dev      # tsx watch, reloads on change
 # or
-npm start        # one-shot
+npm start
 ```
 
-The service listens on `PORT` (default 8080) with:
+The service listens on `PORT` (default 8080):
 - `POST /webhooks/twilio` — point your Twilio number's inbound SMS webhook here
 - `GET /health` — liveness check
 
-### Try it without Twilio (DRY_RUN)
+### 🧪 Try it without Twilio
 
-Set `DRY_RUN=true` and signature validation is skipped and outbound SMS is
-printed to the console instead of sent — so you can exercise the whole grammar
-with `curl`. **Note:** send the `From` value with `--data-urlencode` so the
-leading `+` isn't decoded as a space.
+Set `DRY_RUN=true`: signature checks are skipped and outbound SMS is printed to
+the console instead of sent — so you can exercise the whole grammar with `curl`.
+
+> [!NOTE]
+> Send `From` with `--data-urlencode` so the leading `+` isn't decoded as a space.
 
 ```bash
 DRY_RUN=true npm start
@@ -146,14 +171,14 @@ curl -X POST localhost:8080/webhooks/twilio \
 # → TwiML reply; the crew fan-out prints as [DRY_RUN SMS] lines
 ```
 
-### Test
+### ✅ Test
 
 ```bash
 npm test          # vitest: parser + command handler against an in-memory DB
 npm run typecheck
 ```
 
-## Configuration
+## ⚙️ Configuration
 
 All via environment variables (see [`.env.example`](.env.example)):
 
@@ -170,40 +195,44 @@ All via environment variables (see [`.env.example`](.env.example)):
 | `SWEEP_INTERVAL_SECONDS` | `60` | Expiry sweep cadence |
 | `LOG_RETENTION_DAYS` | `30` | message_log prune horizon |
 
-## Deploying
+## 🌐 Deploying
 
 Rollcall just needs a reachable HTTPS webhook and a writable disk for SQLite.
 
-- **Homelab** (Proxmox + Cloudflare Tunnel): run the process, point the Tunnel
-  at `PORT`, set `PUBLIC_WEBHOOK_URL` to the public hostname.
-- **Fly.io / Railway**: deploy the Node process with a persistent volume mounted
-  where `DATABASE_PATH` points.
+- **Homelab** (Proxmox + Cloudflare Tunnel): run the process, point the Tunnel at `PORT`, set `PUBLIC_WEBHOOK_URL` to the public hostname.
+- **Fly.io / Railway**: deploy the Node process with a persistent volume mounted where `DATABASE_PATH` points.
 
-Set `PUBLIC_WEBHOOK_URL` to exactly what's configured in the Twilio console —
-signature validation hashes that URL, so it must match byte-for-byte.
+Set `PUBLIC_WEBHOOK_URL` to exactly what's in the Twilio console — signature
+validation hashes that URL, so it must match byte-for-byte.
 
-### Twilio setup (the slow part)
+> [!IMPORTANT]
+> **Twilio setup is the slow part.** A2P 10DLC registration is unavoidable for
+> US application SMS even at hobby scale (brand + campaign, one-time ~$19–$60
+> plus a small monthly fee), or a **toll-free number with verification** as the
+> simpler alternative. Verification can take days — budget lead time. Costs
+> otherwise are trivial: number ~$1.15/mo, ~$0.008 per SMS segment. Fan-out copy
+> stays under 160 GSM-7 chars to bill as one segment.
 
-A2P 10DLC registration is **unavoidable** for US application SMS, even at hobby
-scale (brand + campaign, one-time ~$19–$60 plus a small monthly fee), or a
-**toll-free number with verification** as the simpler alternative. Budget lead
-time — verification can take days. Costs otherwise are trivial: number
-~$1.15/mo, ~$0.008 per SMS segment. Fan-out copy is kept under 160 GSM-7 chars
-to stay one segment. Honor `STOP`/`START`/`HELP`; the service also flags
-opted-out riders so it never fans out to them.
-
-## Roadmap
+## 🗺️ Roadmap
 
 - **MVP (this repo)** — SMS-only presence + crew fan-out.
-- **v1.1** — PWA: live "who's riding" view, one-tap go-live, geocoded map pins
-  (the `lat`/`lng` columns are already there, unused).
-- **v2** — auto-start via telemetry (VESC / BLE / phone motion), scheduled
-  rides, multiple crews.
+- **v1.1** — PWA: live "who's riding" view, one-tap go-live, geocoded map pins _(the `lat`/`lng` columns are already there, waiting)_.
+- **v2** — auto-start via telemetry (VESC / BLE / phone motion), scheduled rides, multiple crews.
+- **Someday** — the fun stuff (streaks, group-ride stats) — only once the beacon is rock solid.
 
-## Principles
+## 🧭 Principles
 
-1. **Presence, not surveillance.** Ephemeral status, coarse opt-in location. No
-   breadcrumb trails.
+1. **Presence, not surveillance.** Ephemeral status, coarse opt-in location. No breadcrumb trails.
 2. **Crew-scoped.** Your status goes only to people you chose.
 3. **Stale state is death.** Everything expires.
 4. **Meet riders where they are.** SMS first, PWA second, native maybe never.
+
+---
+
+<div align="center">
+
+📖 [Vision](docs/vision.md) &nbsp;·&nbsp; [MVP spec](docs/mvp-spec.md) &nbsp;·&nbsp; [Contributing](CONTRIBUTING.md)
+
+<sub>🛞 Ride safe.</sub>
+
+</div>
