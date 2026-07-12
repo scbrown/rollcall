@@ -40,6 +40,29 @@ export function liveSessionsInCrew(crewId: string): LiveSessionWithRider[] {
     .all(crewId, nowSql()) as LiveSessionWithRider[];
 }
 
+/** All live sessions across every crew, for the admin live view. */
+export function allLiveSessions(): LiveSessionWithRider[] {
+  return db
+    .prepare(
+      `SELECT s.*, r.display_name, r.phone
+       FROM ride_sessions s
+       JOIN riders r ON r.id = s.rider_id
+       WHERE s.ended_at IS NULL AND s.expires_at > ?
+       ORDER BY s.started_at DESC`,
+    )
+    .all(nowSql()) as LiveSessionWithRider[];
+}
+
+/** End a specific session by id (admin action). Returns true if it was live. */
+export function endSessionById(sessionId: string): boolean {
+  const result = db
+    .prepare(
+      "UPDATE ride_sessions SET ended_at = ? WHERE id = ? AND ended_at IS NULL",
+    )
+    .run(nowSql(), sessionId);
+  return result.changes > 0;
+}
+
 /**
  * Start (or refresh) a ride for a rider. Returns the live session. If one is
  * already live it is updated in place; otherwise a new row is created.

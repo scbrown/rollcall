@@ -48,6 +48,15 @@ export const config = {
   defaultExpiryHours: intOption("DEFAULT_EXPIRY_HOURS", 3),
   sweepIntervalSeconds: intOption("SWEEP_INTERVAL_SECONDS", 60),
   logRetentionDays: intOption("LOG_RETENTION_DAYS", 30),
+
+  // Admin web interface. If password is empty the panel refuses to serve.
+  admin: {
+    password: optional("ADMIN_PASSWORD", ""),
+    // Signs session cookies. If empty, a random secret is generated per boot
+    // (sessions won't survive a restart — fine for a single-admin tool).
+    sessionSecret: optional("ADMIN_SESSION_SECRET", ""),
+    sessionHours: intOption("ADMIN_SESSION_HOURS", 24),
+  },
 } as const;
 
 export type Config = typeof config;

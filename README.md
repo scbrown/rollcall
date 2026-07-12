@@ -55,6 +55,7 @@ to install — half of any crew never would — the phone number _is_ the produc
 - 🤫 **Departures are silent** — `done` and expiry never ping the crew. Arrivals are interesting; leaving is noise.
 - 👥 **Crew-scoped, full stop** — your status goes only to people you chose. No public map of strangers.
 - 🔕 **Mute without leaving** — `mute` stops pings but keeps you a member; `unmute` any time.
+- 🖥️ **Admin web panel** — a password-gated `/admin` UI to seed crews, manage riders, watch who's live, and read the message log — no hand-edited JSON.
 - 🔒 **Verified inbound** — every webhook's `X-Twilio-Signature` is validated or rejected.
 - ♻️ **Carrier-proof** — duplicate webhooks deduped on `MessageSid`; `STOP`/`START`/`HELP` honored.
 - 🧪 **Runs with no Twilio** — `DRY_RUN` mode logs SMS to the console so you can drive the whole grammar with `curl`.
@@ -117,6 +118,10 @@ src/
   twilio/
     validate.ts       X-Twilio-Signature check
     client.ts         REST send (+ DRY_RUN console mode)
+  admin/              password-gated /admin web panel (server-rendered)
+    auth.ts           session cookie sign/verify + gate
+    routes.ts         pages + form actions
+    views.ts          HTML (no client build)
   routes/webhook.ts   POST /webhooks/twilio
   seed.ts             `npm run seed` — admin-seeds crews/riders from JSON
 test/                 vitest: parser + command handler
@@ -179,6 +184,36 @@ npm test          # vitest: parser + command handler against an in-memory DB
 npm run typecheck
 ```
 
+## 🖥️ Admin panel
+
+A server-rendered admin UI lives at **`/admin`** — no separate build, no SPA. Set
+`ADMIN_PASSWORD` to enable it (if unset, the panel refuses to serve). Log in with
+that password and you get a signed, HttpOnly, `SameSite=Strict` session cookie.
+
+<div align="center">
+<img src="docs/assets/admin-crew.png" alt="Rollcall admin — crew detail" width="720">
+</div>
+
+From it you can:
+
+- 👥 **Create crews** and see rider counts and how many are out right now
+- 📇 **Add / rename / re-crew / remove riders** with inline E.164 validation (replaces `seed.json`)
+- 🔕 **Mute or unmute** any rider
+- 🛰️ **Watch live sessions** across every crew and **end** one (silently — the rider isn't texted)
+- 📜 **Read the message log** for debugging
+
+```bash
+ADMIN_PASSWORD='a-long-random-string' \
+ADMIN_SESSION_SECRET="$(openssl rand -hex 32)" \
+npm start
+# → open http://localhost:8080/admin
+```
+
+> [!NOTE]
+> Set `ADMIN_SESSION_SECRET` to a stable value so sessions survive restarts;
+> without it a fresh secret is generated each boot (you'll be logged out on
+> restart). In production the session cookie is `Secure` (HTTPS only).
+
 ## ⚙️ Configuration
 
 All via environment variables (see [`.env.example`](.env.example)):
@@ -195,6 +230,9 @@ All via environment variables (see [`.env.example`](.env.example)):
 | `DEFAULT_EXPIRY_HOURS` | `3` | Ride session lifetime |
 | `SWEEP_INTERVAL_SECONDS` | `60` | Expiry sweep cadence |
 | `LOG_RETENTION_DAYS` | `30` | message_log prune horizon |
+| `ADMIN_PASSWORD` | _(empty)_ | Enables `/admin`; empty = panel disabled |
+| `ADMIN_SESSION_SECRET` | _(random)_ | Signs admin session cookies; set a stable value |
+| `ADMIN_SESSION_HOURS` | `24` | Admin session lifetime |
 
 ## 🌐 Deploying
 

@@ -26,6 +26,22 @@ export function recordOutbound(phone: string, body: string, sid?: string): void 
   ).run(phone, body, sid ?? null);
 }
 
+export interface LogRow {
+  id: number;
+  direction: string;
+  phone: string;
+  body: string;
+  twilio_sid: string | null;
+  created_at: string;
+}
+
+/** Most recent log rows, newest first, for the admin debug view. */
+export function recentLog(limit = 100): LogRow[] {
+  return db
+    .prepare("SELECT * FROM message_log ORDER BY id DESC LIMIT ?")
+    .all(limit) as LogRow[];
+}
+
 /** Prune log rows older than `days`. Returns the number deleted. */
 export function pruneLog(days: number): number {
   const result = db

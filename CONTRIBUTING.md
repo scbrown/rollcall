@@ -58,8 +58,18 @@ domain/*.ts         ─ state: riders, sessions, message_log. Thin SQL wrappers.
 db/index.ts         ─ the one shared better-sqlite3 connection (WAL).
 
 twilio/*.ts         ─ the only files that import the twilio SDK.
+admin/*.ts          ─ the /admin web panel. Reuses domain/*; owns its own
+                      auth + HTML. Knows nothing the SMS layer needs to know.
 sweep.ts            ─ the expiry ticker, started from index.ts.
 ```
+
+**The admin panel** (`src/admin/`) is a server-rendered Hono sub-app mounted at
+`/admin`, gated by `ADMIN_PASSWORD`. It reuses the same `domain/` functions the
+SMS grammar does — no separate data path — and renders plain HTML template
+strings (no client build). If you add a page: put queries in `domain/`, the
+route in `admin/routes.ts`, and the markup in `admin/views.ts` (run everything
+user-supplied through `esc()`). Follow Post/Redirect/Get for mutations, and pass
+flash messages via the `?msg=` / `?err=` query params — there's no session store.
 
 **Where to add a new SMS command:**
 

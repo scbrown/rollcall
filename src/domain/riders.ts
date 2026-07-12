@@ -68,6 +68,41 @@ export function markFooterShown(riderId: string): void {
   db.prepare("UPDATE riders SET footer_shown_at = ? WHERE id = ?").run(nowSql(), riderId);
 }
 
+/** All crews with their rider count, for the admin dashboard. */
+export interface CrewWithCount extends Crew {
+  rider_count: number;
+}
+
+export function listCrewsWithCounts(): CrewWithCount[] {
+  return db
+    .prepare(
+      `SELECT c.id, c.name, COUNT(r.id) AS rider_count
+       FROM crews c
+       LEFT JOIN riders r ON r.crew_id = c.id
+       GROUP BY c.id
+       ORDER BY c.name`,
+    )
+    .all() as CrewWithCount[];
+}
+
+/** Update a rider's display name and crew (admin edit). */
+export function updateRider(riderId: string, displayName: string, crewId: string): void {
+  db.prepare("UPDATE riders SET display_name = ?, crew_id = ? WHERE id = ?").run(
+    displayName,
+    crewId,
+    riderId,
+  );
+}
+
+/** Remove a rider and any of their ride sessions (admin delete). */
+export function deleteRider(riderId: string): void {
+  const tx = db.transaction((id: string) => {
+    db.prepare("DELETE FROM ride_sessions WHERE rider_id = ?").run(id);
+    db.prepare("DELETE FROM riders WHERE id = ?").run(id);
+  });
+  tx(riderId);
+}
+
 /** Admin/seed helper: create a crew if it doesn't already exist, return its id. */
 export function upsertCrew(name: string, id = randomUUID()): string {
   const existing = db.prepare("SELECT id FROM crews WHERE name = ?").get(name) as
